@@ -1,6 +1,6 @@
-import re
-from pathlib import Path
 from typing import Optional
+from pathlib import Path
+import re
 
 from fuzzy_match import match
 
@@ -34,6 +34,9 @@ class DocumentParser:
         order_number = self._parse_order_number(order_line)
 
         return {"date": order_date, "order_number": order_number}
+
+    def parse_people(self):
+        pass
 
     def _extract_order_header(self) -> str:
         start_match = re.search(
@@ -82,16 +85,17 @@ class DocumentParser:
             return None
 
         day = parts[0][:2]
-        month = match.extractOne(parts[1].lower(), UKRAINIAN_MONTHS_IN_GENITIVE)
+        month_match = match.extractOne(parts[1].lower(), UKRAINIAN_MONTHS_IN_GENITIVE)
         year = parts[2]
+
+        month = month_match[0] if month_match else "-"
 
         return f"{day} {month} {year}"
 
-    def _parse_order_number(self, order_line: str) -> str | None:
-        order_match = re.search(
-            r"\b(?:м\s*|номер\s*|№\s*)?\s*(\d{1,7})\b", order_line, re.IGNORECASE
-        )
-        if not order_match:
-            return None
+    def _parse_order_number(self, order_line: str) -> Optional[str]:
+        order_match = re.search(r'\d+', order_line)
 
-        return order_match.group(1)
+        if not order_match:
+            return "-"
+
+        return order_match.group(0)

@@ -28,6 +28,7 @@
 
 ## Part 4. Build document from template
 
+- [ ] ask user for edits; find the simplest solution for it
 - [ ] prepare template
 - [ ] borrow code about injection of template context
 - [ ] build file name
