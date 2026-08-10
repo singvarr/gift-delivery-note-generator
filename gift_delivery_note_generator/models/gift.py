@@ -4,6 +4,6 @@ from gift_delivery_note_generator.store_config.constants.gift_category import Gi
 from gift_delivery_note_generator.models.entry import Entry
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Gift(Entry):
     category: GiftCategory

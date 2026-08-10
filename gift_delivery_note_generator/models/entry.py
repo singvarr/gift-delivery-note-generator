@@ -1,7 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Entry:
     name: str
-    keywords: list[str] = []
+    keywords: list[str] = field(default_factory=list)
