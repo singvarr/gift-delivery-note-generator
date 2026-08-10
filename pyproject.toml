@@ -1,0 +1,17 @@
+[tool.black]
+line-length = 100
+target-version = ['py314']
+include = '\.py?$'
+exclude = '''
+/(
+    \.git
+  | build
+  | dist
+  | Include
+  | Lib
+  | Scripts
+)/
+'''
+
+[tool.mypy]
+python_version = "3.14"
