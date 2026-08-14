@@ -13,7 +13,6 @@ class GiftEntry:
 
 @dataclass
 class DeliveryNote:
-    category: GiftCategory
     issue_date: date
     number: int
     gift_store: str

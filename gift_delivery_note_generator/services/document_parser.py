@@ -4,15 +4,15 @@ import re
 
 from fuzzy_match import match
 
-
-from gift_delivery_note_generator.constants.image_folder import IMAGES_FOLDER
+from gift_delivery_note_generator.store_config.constants.gifts import gifts
+from gift_delivery_note_generator.store_config.constants.regexps import TIN_NUMBER_REGEXP
+from gift_delivery_note_generator.store_config.utils.parse_gift_store import parse_gift_store
 from gift_delivery_note_generator.constants.months import UKRAINIAN_MONTHS_IN_GENITIVE
-
-ZOOM = 300 / 72
-
+from gift_delivery_note_generator.models.scan import ParsedDocumentContent
+from gift_delivery_note_generator.utils.find_entry_by_keywords import find_entry_by_keywords
 
 class DocumentParser:
-    def __init__(self, contents: Path):
+    def __init__(self, contents: ParsedDocumentContent):
         self._contents = contents
 
     def parse_date_and_order_number(self) -> dict[str, str | None]:
@@ -31,12 +31,23 @@ class DocumentParser:
         suffix = order_header[city_match.end() :]
 
         order_line = self._get_first_non_empty_line(suffix)
-        order_number = self._parse_order_number(order_line)
+        order_number = self._retrieve_number_from_str(order_line)
 
         return {"date": order_date, "order_number": order_number}
 
-    def parse_people(self):
-        pass
+    def _parse_gifts(self):
+        result = []
+
+        for entry in self._contents.gifts:
+            gift_name = find_entry_by_keywords(text=entry.gift, entries=gifts)
+            # full_name =
+            tin_number = TIN_NUMBER_REGEXP.match(entry.recipient_details)[0]
+            gift_store = parse_gift_store(text=entry.recipient_details)
+
+    def run(self):
+        gifts = self._parse_gifts()
+
+        print(gifts)
 
     def _extract_order_header(self) -> str:
         start_match = re.search(
@@ -92,10 +103,12 @@ class DocumentParser:
 
         return f"{day} {month} {year}"
 
-    def _parse_order_number(self, order_line: str) -> Optional[str]:
+    # TODO: add fucking predicate for convenient parsing of this shit without extra regexp
+    def _retrieve_number_from_str(self, order_line: str) -> Optional[str]:
+        # TODO: compile this fuckery
         order_match = re.search(r'\d+', order_line)
 
-        if not order_match:
-            return "-"
+        if order_match:
+            return order_match.group(0)
 
-        return order_match.group(0)
+        return None
