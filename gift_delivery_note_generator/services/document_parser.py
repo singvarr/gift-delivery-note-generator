@@ -1,5 +1,4 @@
 from typing import Optional
-from pathlib import Path
 import re
 
 from fuzzy_match import match
@@ -10,6 +9,26 @@ from gift_delivery_note_generator.store_config.utils.parse_gift_store import par
 from gift_delivery_note_generator.constants.months import UKRAINIAN_MONTHS_IN_GENITIVE
 from gift_delivery_note_generator.models.scan import ParsedDocumentContent
 from gift_delivery_note_generator.utils.find_entry_by_keywords import find_entry_by_keywords
+import pymorphy3
+
+morph = pymorphy3.MorphAnalyzer(lang='uk')
+
+def normalize_word(word: str) -> str:
+    parses = morph.parse(word)
+
+    # 1. Шукаємо варіант, який чітко позначений як ім'я, прізвище або по батькові
+    for p in parses:
+        if any(tag in p.tag for tag in ('Name', 'Surn', 'Patr')):
+            return p.normal_form.capitalize()
+
+    # 2. Якщо це бігаюча голосна / іменник (наприклад, Кравця -> Кравець, Коваля -> Коваль)
+    # Звертаємося до першого нормального варіанту
+    return parses[0].normal_form.capitalize()
+
+def pib_to_nominative(full_name: str) -> str:
+    words = full_name.strip().split()
+    result = [normalize_word(w) for w in words]
+    return " ".join(result)
 
 class DocumentParser:
     def __init__(self, contents: ParsedDocumentContent):
@@ -40,9 +59,13 @@ class DocumentParser:
 
         for entry in self._contents.gifts:
             gift_name = find_entry_by_keywords(text=entry.gift, entries=gifts)
-            # full_name =
-            tin_number = TIN_NUMBER_REGEXP.match(entry.recipient_details)[0]
+            full_name = pib_to_nominative(entry.full_name)
+
+            tin_number = TIN_NUMBER_REGEXP.search(entry.recipient_details)[0]
             gift_store = parse_gift_store(text=entry.recipient_details)
+
+            print((gift_name, tin_number, gift_store, full_name))
+            result.append((gift_name, tin_number, gift_store, full_name))
 
     def run(self):
         gifts = self._parse_gifts()

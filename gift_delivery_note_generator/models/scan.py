@@ -19,13 +19,16 @@ class ScannedTextToken:
 
 ScannedLine = list[ScannedTextToken]
 
+@dataclass
+class ParsedOrderMeta:
+    dt: str
+    number: str
+
 
 @dataclass
 class ParsedDocumentContent:
-    order_date: str
-    order_number: str
+    meta: ParsedOrderMeta
     gifts: list[ParsedGiftEntry]
-
 
 @dataclass
 class ParsedGiftEntry:

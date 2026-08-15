@@ -16,6 +16,6 @@ if __name__ == "__main__":
         document_reader = DocumentReader(file_path=sample_path)
         scanned_document = document_reader.run()
         document_parser = DocumentParser(contents=scanned_document)
-        parsed_data = document_parser.parse()
+        parsed_data = document_parser.run()
     except Exception as e:
         print(f"An error occurred: {e}")

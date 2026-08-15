@@ -20,11 +20,15 @@ from gift_delivery_note_generator.constants.scan_settings import (
     Y_AXIS_JITTER_TOLERANCE_IN_PX,
     ZOOM,
 )
+from gift_delivery_note_generator.store_config.constants.order_details_anchor import (
+    ORDER_DETAILS_ANCHOR,
+)
 from gift_delivery_note_generator.store_config.constants.regexps import (
-    ENTRY_NUMBER_REGEX,
+    GIFT_ENTRY_NUMBER_REGEX,
     RECIPIENT_INFO_REGEXP,
 )
 from gift_delivery_note_generator.models.scan import (
+    ParsedOrderMeta,
     ParsedDocumentContent,
     ParsedGiftEntry,
     ScannedLine,
@@ -35,6 +39,10 @@ from gift_delivery_note_generator.models.scan import (
 class DocumentReader:
     def __init__(self, file_path: Path):
         self._file_path = file_path
+
+    @staticmethod
+    def _join_text_tokens(tokens: Iterable[ScannedTextToken]) -> str:
+        return ' '.join(token.text for token in tokens)
 
     # TODO: apply this method
     @staticmethod
@@ -142,8 +150,22 @@ class DocumentReader:
 
         return lines
 
-    def _group_content(self, lines: list[ScannedLine]):
-        return self._extract_sections(lines=lines)
+    def _extract_order_details(self, lines: list[ScannedLine]):
+        for line in lines:
+            for index, token in enumerate(line):
+                if ORDER_DETAILS_ANCHOR.lower() in token.text.strip().lower():
+                    order_date = line[:index]
+                    order_number = line[index + 1:]
+
+                    return ParsedOrderMeta(dt=order_date, number=order_number)
+
+        raise Exception(ErrorMessages.FAILED_TO_PARSE_ORDER_HEADER)
+
+    def _group_content(self, lines: list[ScannedLine]) -> ParsedDocumentContent:
+        meta = self._extract_order_details(lines=lines)
+        gifts = self._extract_sections(lines=lines)
+
+        return ParsedDocumentContent(meta=meta, gifts=gifts)
 
     def _clean_last_section(self, lines: list[ScannedLine]) -> list[ScannedLine]:
         for index, line in enumerate(reversed(lines)):
@@ -153,10 +175,6 @@ class DocumentReader:
                 return lines[:index * -1]
 
         return lines
-
-    @staticmethod
-    def _join_text_tokens(tokens: Iterable[ScannedTextToken]) -> str:
-        return ' '.join(token.text for token in tokens)
 
     def _structure_entry_contents(self, gift: str, entry: list[ScannedLine]) -> ParsedGiftEntry:
         full_name = ''
@@ -181,7 +199,7 @@ class DocumentReader:
         stop_index = next(
             index
             for index, line in enumerate(section)
-            if ENTRY_NUMBER_REGEX.match(line[0].text)
+            if GIFT_ENTRY_NUMBER_REGEX.match(line[0].text)
         )
 
         gift_name_entries = sum(section[:stop_index], [])
@@ -190,7 +208,13 @@ class DocumentReader:
         breakpoints = []
 
         for index, line in enumerate(section):
-            if ENTRY_NUMBER_REGEX.match(line[0].text):
+            if (
+                GIFT_ENTRY_NUMBER_REGEX.match(line[0].text) and
+                (
+                    index == stop_index or
+                    RECIPIENT_INFO_REGEXP.search(DocumentReader._join_text_tokens(section[index - 1]))
+                )
+            ):
                 breakpoints.append(index)
 
         unstructured_sections = []
@@ -302,4 +326,4 @@ class DocumentReader:
         # Step 5. Remove processed png files
         # self._remove_scanned_images()
 
-        return ParsedDocumentContent(gifts=result, order_date="", order_number="")
+        return result
