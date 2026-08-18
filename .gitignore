@@ -12,5 +12,4 @@ gift_delivery_note_generator/store_config/**/*.py
 images/
 
 *.pyc
-
-gift_delivery_note_generator/test.py
+*.docx
