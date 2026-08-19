@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from csv import DictReader
 from io import BytesIO, StringIO
@@ -6,20 +7,22 @@ from statistics import mean
 from typing import Iterable
 import shutil
 
+from rapidfuzz import fuzz
 import pytesseract
 import pymupdf
-from PIL import Image, ImageFile
+from PIL import Image
 
+from gift_delivery_note_generator.constants.ocr_misread_numbers import OCR_MISREAD_NUMBERS_MAPPINGS
 from gift_delivery_note_generator.store_config.constants.error_messages import ErrorMessages
-# TODO: group imports
 from gift_delivery_note_generator.constants.file_names import GIT_KEEP_FILE_NAME
-from gift_delivery_note_generator.constants.image_folder import IMAGES_FOLDER
+from gift_delivery_note_generator.constants.paths import IMAGES_FOLDER
 from gift_delivery_note_generator.constants.scan_settings import (
     MIN_CONFIDENCE_THRESHOLD_PERCENTAGE,
     SCANNED_WORD_LEVEL,
     Y_AXIS_JITTER_TOLERANCE_IN_PX,
     ZOOM,
 )
+from gift_delivery_note_generator.store_config.utils.get_ocr_match_rules import get_ocr_match_config
 from gift_delivery_note_generator.store_config.constants.order_details_anchor import (
     ORDER_DETAILS_ANCHOR,
 )
@@ -30,7 +33,7 @@ from gift_delivery_note_generator.store_config.constants.regexps import (
 from gift_delivery_note_generator.models.scan import (
     ParsedOrderMeta,
     ParsedDocumentContent,
-    ParsedGiftEntry,
+    ScannedGiftEntry,
     ScannedLine,
     ScannedTextToken,
 )
@@ -42,21 +45,7 @@ class DocumentReader:
 
     @staticmethod
     def _join_text_tokens(tokens: Iterable[ScannedTextToken]) -> str:
-        return ' '.join(token.text for token in tokens)
-
-    # TODO: apply this method
-    @staticmethod
-    def _save_image(
-        img: ImageFile,
-        box: tuple[float, float, float, float],
-        index: int,
-        result: list[str],
-    ):
-        page = img.crop(box)
-        left_page_destination_path = IMAGES_FOLDER / f"page_{index}.png"
-        page.save(left_page_destination_path)
-        result.append(left_page_destination_path)
-        index += 1
+        return " ".join(token.text for token in tokens)
 
     def _convert_pdf_to_images(self):
         image_paths = []
@@ -75,12 +64,6 @@ class DocumentReader:
 
                 midpoint = width // 2
 
-                # DocumentReader._save_image(
-                #     img=img,
-                #     box=(0, 0, midpoint, height),
-                #     index=index,
-                #     image_paths=[],
-                # )
                 left_page = img.crop((0, 0, midpoint, height))
                 left_page_destination_path = IMAGES_FOLDER / f"page_{index}.png"
                 left_page.save(left_page_destination_path)
@@ -93,35 +76,17 @@ class DocumentReader:
                 image_paths.append(right_page_destination_path)
                 index += 1
 
-
-                # TODO: restore this
-                # self._remove_blue_stamps_in_image(destination_path)
-
         return image_paths
 
-    # def _remove_blue_stamps_in_image(self, image_path: Path) -> None:
-    #         img_bgr = cv2.imread(str(image_path))
-
-    #         hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-
-    #         lower_blue = np.array([90, 40, 40])
-    #         upper_blue = np.array([140, 255, 255])
-    #         mask = cv2.inRange(hsv, lower_blue, upper_blue)
-
-    #         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    #         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
-    #         mask = cv2.morphologyEx(mask, cv2.MORPH_DILATE, kernel, iterations=2)
-
-    #         if cv2.countNonZero(mask) == 0:
-    #             return
-
-    #         inpainted = cv2.inpaint(img_bgr, mask, 3, cv2.INPAINT_TELEA)
-
-    #         cv2.imwrite(str(image_path), inpainted)
+    def _split_document(
+        self, tokens: list[ScannedTextToken]
+    ) -> tuple[list[ScannedTextToken], list[ScannedTextToken]]:
+        pass
 
     def _parse_and_group_text_by_lines(
         self,
         tokens: list[ScannedTextToken],
+        y_axis_jitter_tolerance: int,
     ) -> ScannedLine:
         if not tokens:
             raise Exception(ErrorMessages.NO_CONTENT_IN_DOCUMENT)
@@ -135,7 +100,7 @@ class DocumentReader:
         for entry in tokens[1:]:
             avg_top = mean(line_entry.top for line_entry in current_line)
 
-            if abs(entry.top - avg_top) <= Y_AXIS_JITTER_TOLERANCE_IN_PX:
+            if abs(entry.top - avg_top) <= y_axis_jitter_tolerance:
                 current_line.append(entry)
             else:
                 current_line.sort(key=lambda entry: entry.left)
@@ -154,8 +119,8 @@ class DocumentReader:
         for line in lines:
             for index, token in enumerate(line):
                 if ORDER_DETAILS_ANCHOR.lower() in token.text.strip().lower():
-                    order_date = line[:index]
-                    order_number = line[index + 1:]
+                    order_date = DocumentReader._join_text_tokens(line[:index])
+                    order_number = DocumentReader._join_text_tokens(line[index + 1 :])
 
                     return ParsedOrderMeta(dt=order_date, number=order_number)
 
@@ -165,20 +130,20 @@ class DocumentReader:
         meta = self._extract_order_details(lines=lines)
         gifts = self._extract_sections(lines=lines)
 
-        return ParsedDocumentContent(meta=meta, gifts=gifts)
+        return ParsedDocumentContent(meta=meta, gift_entries=gifts)
 
     def _clean_last_section(self, lines: list[ScannedLine]) -> list[ScannedLine]:
         for index, line in enumerate(reversed(lines)):
             line_text = DocumentReader._join_text_tokens(tokens=line)
 
             if RECIPIENT_INFO_REGEXP.search(line_text.lower()):
-                return lines[:index * -1]
+                return lines[: index * -1]
 
         return lines
 
-    def _structure_entry_contents(self, gift: str, entry: list[ScannedLine]) -> ParsedGiftEntry:
-        full_name = ''
-        recipient_details = ''
+    def _structure_entry_contents(self, gift: str, entry: list[ScannedLine]) -> ScannedGiftEntry:
+        full_name = ""
+        recipient_details = ""
 
         for index, line in enumerate(entry):
             if index == 0:
@@ -189,11 +154,13 @@ class DocumentReader:
             else:
                 for token in line:
                     if token.left >= left_boundary - Y_AXIS_JITTER_TOLERANCE_IN_PX:
-                        recipient_details += ' ' + token.text
+                        recipient_details += " " + token.text
                     else:
-                        full_name += ' ' + token.text
+                        full_name += " " + token.text
 
-        return ParsedGiftEntry(gift=gift, full_name=full_name, recipient_details=recipient_details)
+        recipient_details = self._fix_ocr_integers_with_known_candidates(recipient_details)
+
+        return ScannedGiftEntry(gift=gift, full_name=full_name, recipient_details=recipient_details)
 
     def _parse_gift_group(self, section: list[ScannedLine]):
         stop_index = next(
@@ -203,16 +170,15 @@ class DocumentReader:
         )
 
         gift_name_entries = sum(section[:stop_index], [])
-        gift_text = ' '.join(entry.text for entry in gift_name_entries)
+        gift_text = " ".join(entry.text for entry in gift_name_entries)
 
         breakpoints = []
 
         for index, line in enumerate(section):
-            if (
-                GIFT_ENTRY_NUMBER_REGEX.match(line[0].text) and
-                (
-                    index == stop_index or
-                    RECIPIENT_INFO_REGEXP.search(DocumentReader._join_text_tokens(section[index - 1]))
+            if GIFT_ENTRY_NUMBER_REGEX.match(line[0].text) and (
+                index == stop_index
+                or RECIPIENT_INFO_REGEXP.search(
+                    DocumentReader._join_text_tokens(section[index - 1])
                 )
             ):
                 breakpoints.append(index)
@@ -225,7 +191,7 @@ class DocumentReader:
             if is_last_section:
                 gift_entry = section[breakpoint:]
             else:
-                gift_entry = section[breakpoint:breakpoints[index + 1]]
+                gift_entry = section[breakpoint : breakpoints[index + 1]]
 
             unstructured_sections.append(gift_entry)
 
@@ -256,7 +222,7 @@ class DocumentReader:
                 section_lines = lines[breakpoint:]
                 gift_group = self._clean_last_section(lines=section_lines)
             else:
-                gift_group = lines[breakpoint:group_breakpoints[index + 1]]
+                gift_group = lines[breakpoint : group_breakpoints[index + 1]]
 
             gift_groups.append(gift_group)
 
@@ -272,35 +238,117 @@ class DocumentReader:
 
         for page_idx, path in enumerate(paths):
             with Image.open(path) as img:
-                raw_tsv = pytesseract.image_to_data(img, lang='ukr')
+                raw_tsv = pytesseract.image_to_data(img, lang="ukr")
 
                 cleaned_string = raw_tsv.strip("'\n ")
 
                 f = StringIO(cleaned_string)
-                reader = DictReader(f, delimiter='\t')
+                reader = DictReader(f, delimiter="\t")
 
                 for row in reader:
                     should_omit = (
-                        row['text'] is None or
-                        isinstance(row['text'], str) and row['text'].strip() == '-'
+                        row["text"] is None
+                        or isinstance(row["text"], str)
+                        and row["text"].strip() == "-"
                     )
 
                     if (
-                        int(row['level']) == SCANNED_WORD_LEVEL and
-                        float(row['conf']) >= MIN_CONFIDENCE_THRESHOLD_PERCENTAGE and
-                        not should_omit
+                        int(row["level"]) == SCANNED_WORD_LEVEL
+                        and float(row["conf"]) >= MIN_CONFIDENCE_THRESHOLD_PERCENTAGE
+                        and not should_omit
                     ):
                         token = ScannedTextToken(
                             page=page_idx,
-                            left=int(row['left']),
-                            top=int(row['top']),
-                            width=int(row['width']),
-                            height=int(row['height']),
-                            text= row['text'].strip(),
+                            left=int(row["left"]),
+                            top=int(row["top"]),
+                            width=int(row["width"]),
+                            height=int(row["height"]),
+                            text=row["text"].strip(),
                         )
                         result.append(token)
 
         return result
+
+    def _fix_ocr_integers_with_known_candidates(self, text: str, score_cutoff: float = 70.0) -> str:
+        anchor_rules = get_ocr_match_config()
+        current_text = text
+
+        for anchor_phrase, candidates in anchor_rules.items():
+            anchor_len = len(anchor_phrase)
+            search_start = 0
+
+            while search_start < len(current_text):
+                best_score = 0.0
+                best_start_idx = -1
+                best_window_len = anchor_len
+
+                # Сканування тексту на наявність якоря
+                text_to_search = current_text[search_start:]
+                text_len = len(text_to_search)
+
+                for window_len in range(max(1, anchor_len - 2), anchor_len + 3):
+                    for i in range(text_len - window_len + 1):
+                        window = text_to_search[i : i + window_len]
+                        score = fuzz.ratio(anchor_phrase.lower(), window.lower())
+
+                        if score > best_score and score >= score_cutoff:
+                            best_score = score
+                            best_start_idx = search_start + i
+                            best_window_len = window_len
+
+                if best_start_idx == -1:
+                    break
+
+                # Визначення токена (слова) безпосередньо перед якорем
+                prefix = current_text[:best_start_idx].rstrip()
+
+                if prefix:
+                    last_space_idx = prefix.rfind(" ")
+                    if last_space_idx == -1:
+                        raw_num_token = prefix
+                        token_start_idx = 0
+                    else:
+                        raw_num_token = prefix[last_space_idx + 1 :]
+                        token_start_idx = last_space_idx + 1
+
+                    # КРОК А: Нормалізація токена через ocr_to_digits
+                    normalized_token = "".join(
+                        OCR_MISREAD_NUMBERS_MAPPINGS.get(char, char) for char in raw_num_token
+                    )
+                    normalized_token = re.sub(r"\D", "", normalized_token)  # Залишаємо лише цифри
+
+                    matched_candidate = None
+
+                    # КРОК Б: Точний або Fuzzy підбір серед дозволеного списку кандидатів
+                    if normalized_token in candidates:
+                        matched_candidate = normalized_token
+                    else:
+                        # Якщо навіть після нормалізації число не ідеальне, шукаємо найближчого кандидата
+                        best_cand_score = -1.0
+                        for cand in candidates:
+                            # Порівнюємо як сирий токен, так і нормалізований з кандидатом
+                            cand_score = max(
+                                fuzz.ratio(normalized_token, cand),
+                                fuzz.ratio(raw_num_token.lower(), cand.lower()),
+                            )
+                            if cand_score > best_cand_score:
+                                best_cand_score = cand_score
+                                matched_candidate = cand
+
+                    # КРОК В: Заміна зіпсованого токена на відновий кандидат
+                    if matched_candidate:
+                        token_end_idx = token_start_idx + len(raw_num_token)
+                        current_text = (
+                            current_text[:token_start_idx]
+                            + matched_candidate
+                            + current_text[token_end_idx:]
+                        )
+                        diff = len(matched_candidate) - len(raw_num_token)
+                        best_start_idx += diff
+
+                search_start = best_start_idx + best_window_len
+
+        return current_text
 
     def _remove_scanned_images(self) -> None:
         for item in os.listdir(IMAGES_FOLDER):
@@ -320,7 +368,10 @@ class DocumentReader:
         # Step 2. Read image contents
         tokens = self._parse_text_tokens_from_images(paths=image_paths)
         # Step 3. Perform OCR and break group scanned text in lines
-        lines = self._parse_and_group_text_by_lines(tokens=tokens)
+        lines = self._parse_and_group_text_by_lines(
+            tokens=tokens,
+            y_axis_jitter_tolerance=Y_AXIS_JITTER_TOLERANCE_IN_PX,
+        )
         # Step 4. Group content logically and extract section with information from lines
         result = self._group_content(lines=lines)
         # Step 5. Remove processed png files

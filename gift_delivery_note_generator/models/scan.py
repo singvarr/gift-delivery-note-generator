@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
+from gift_delivery_note_generator.models.gift import Gift
+
 ScannedEntry = tuple[str, str]
+
 
 @dataclass
 class ScannedSection:
@@ -17,21 +20,26 @@ class ScannedTextToken:
     height: int
     text: str
 
+
 ScannedLine = list[ScannedTextToken]
+
 
 @dataclass
 class ParsedOrderMeta:
     dt: str
     number: str
+    # TODO: make it required
+    issuer: str = ""
 
 
 @dataclass
 class ParsedDocumentContent:
     meta: ParsedOrderMeta
-    gifts: list[ParsedGiftEntry]
+    gift_entries: list[ScannedGiftEntry]
+
 
 @dataclass
-class ParsedGiftEntry:
-    gift: str
+class ScannedGiftEntry:
+    gift: Gift
     full_name: str
     recipient_details: str

@@ -1,117 +1,118 @@
 from typing import Optional
+from datetime import date
 import re
 
 from fuzzy_match import match
 
+from gift_delivery_note_generator.constants.language_code import SHORT_LANGUAGE_CODE
+from gift_delivery_note_generator.models.delivery_note import DeliveryNote, GiftEntry
 from gift_delivery_note_generator.store_config.constants.gifts import gifts
 from gift_delivery_note_generator.store_config.constants.regexps import TIN_NUMBER_REGEXP
 from gift_delivery_note_generator.store_config.utils.parse_gift_store import parse_gift_store
-from gift_delivery_note_generator.constants.months import UKRAINIAN_MONTHS_IN_GENITIVE
+from gift_delivery_note_generator.constants.ukrainian_months_in_genitive import (
+    UKRAINIAN_MONTHS_IN_GENITIVE,
+)
+from gift_delivery_note_generator.store_config.utils.build_gift_details_cell import (
+    build_gift_details_cell,
+)
 from gift_delivery_note_generator.models.scan import ParsedDocumentContent
 from gift_delivery_note_generator.utils.find_entry_by_keywords import find_entry_by_keywords
 import pymorphy3
 
-morph = pymorphy3.MorphAnalyzer(lang='uk')
+morph = pymorphy3.MorphAnalyzer(lang=SHORT_LANGUAGE_CODE)
+
 
 def normalize_word(word: str) -> str:
     parses = morph.parse(word)
 
     # 1. Шукаємо варіант, який чітко позначений як ім'я, прізвище або по батькові
     for p in parses:
-        if any(tag in p.tag for tag in ('Name', 'Surn', 'Patr')):
+        if any(tag in p.tag for tag in ("Name", "Surn", "Patr")):
             return p.normal_form.capitalize()
 
     # 2. Якщо це бігаюча голосна / іменник (наприклад, Кравця -> Кравець, Коваля -> Коваль)
     # Звертаємося до першого нормального варіанту
     return parses[0].normal_form.capitalize()
 
+
 def pib_to_nominative(full_name: str) -> str:
     words = full_name.strip().split()
     result = [normalize_word(w) for w in words]
+
+    if result:
+        result[0] = result[0].upper()
+
     return " ".join(result)
+
 
 class DocumentParser:
     def __init__(self, contents: ParsedDocumentContent):
         self._contents = contents
 
     def parse_date_and_order_number(self) -> dict[str, str | None]:
-        order_header = self._extract_order_header()
-
-        city_match = re.search(r"\bм\s*\.\s*київ\b", order_header, re.IGNORECASE)
-
-        if not city_match:
-            return {"date": None, "order_number": None}
-
-        prefix = order_header[: city_match.start()]
-
-        date_line = self._last_non_empty_line(prefix)
-        order_date = self._parse_date_line(date_line)
-
-        suffix = order_header[city_match.end() :]
-
-        order_line = self._get_first_non_empty_line(suffix)
-        order_number = self._retrieve_number_from_str(order_line)
+        order_date = self._parse_date_line(self._contents.meta.dt)
+        order_number = self._retrieve_number_from_str(self._contents.meta.number)
 
         return {"date": order_date, "order_number": order_number}
 
-    def _parse_gifts(self):
-        result = []
+    def _build_delivery_notes(self, issue_date: date, order_issuer: str, order_number: str):
+        result = {}
 
-        for entry in self._contents.gifts:
-            gift_name = find_entry_by_keywords(text=entry.gift, entries=gifts)
+        for entry in self._contents.gift_entries:
             full_name = pib_to_nominative(entry.full_name)
-
             tin_number = TIN_NUMBER_REGEXP.search(entry.recipient_details)[0]
-            gift_store = parse_gift_store(text=entry.recipient_details)
 
-            print((gift_name, tin_number, gift_store, full_name))
-            result.append((gift_name, tin_number, gift_store, full_name))
+            recipient_data = f"{full_name} ({tin_number})"
+            gift = find_entry_by_keywords(text=entry.gift, entries=gifts)
+            store_id = parse_gift_store(text=entry.recipient_details)
 
-    def run(self):
-        gifts = self._parse_gifts()
+            if store_id in result:
+                delivery_note = result[store_id]
+            else:
+                formatted_issue_date = (
+                    f"{UKRAINIAN_MONTHS_IN_GENITIVE[issue_date.month - 1]} {issue_date.year}"
+                )
 
-        print(gifts)
+                delivery_note = DeliveryNote(
+                    issue_date=formatted_issue_date,
+                    # TODO: parse it
+                    order_date=date.today(),
+                    order_issuer=order_issuer,
+                    store_id=store_id,
+                    order_number=order_number,
+                    gifts=[],
+                )
+                result[store_id] = delivery_note
 
-    def _extract_order_header(self) -> str:
-        start_match = re.search(
-            r"витяг\s+(?:із|з)\s+наказу", self._contents, re.IGNORECASE
-        )
-
-        if not start_match:
-            raise Exception(
-                "Failed to find the start of the order header in the scanned document"
+            order_details = build_gift_details_cell(
+                delivery_note=delivery_note,
+                gift=gift,
             )
 
-        start_index = start_match.end()
-        remaining_text = self._contents[start_index:]
-        end_match = re.search(r"наказую\s*:?", remaining_text, re.IGNORECASE)
+            gift_row = GiftEntry(
+                recipient=recipient_data,
+                order_details=order_details,
+                store_id=store_id,
+            )
+            delivery_note.gifts.append(gift_row)
 
-        if not end_match:
-            raise Exception("Failed to find the end of the order header in the scanned document")
+        return result
 
-        end_index = start_index + end_match.start()
+    def run(self):
+        order_issuer = "ГК"
+        order_number = "636"
 
-        return self._contents[start_index:end_index]
+        gifts = self._build_delivery_notes(
+            issue_date=date.today(),
+            order_issuer=order_issuer,
+            order_number=order_number,
+        )
 
-    def _get_first_non_empty_line(self, text: str) -> str:
-        lines = text.splitlines()
-        for line in lines:
-            candidate = line.strip()
-            if candidate:
-                return candidate
-        return ""
-
-    def _last_non_empty_line(self, text: str) -> str:
-        lines = text.splitlines()
-
-        for line in reversed(lines):
-            candidate = line.strip()
-            if candidate:
-                return candidate
-        return ""
+        return list(gifts.values())
 
     def _parse_date_line(self, date_line: str) -> Optional[str]:
-        date_line = date_line.strip("\"'«»")
+        cleaned = re.sub(r"[a-zA-Zа-яА-ЯіїєґІЇЄҐ]", "", date_line)
+        date_line = cleaned.strip("\"'«»")
 
         parts = date_line.split()
 
@@ -129,7 +130,7 @@ class DocumentParser:
     # TODO: add fucking predicate for convenient parsing of this shit without extra regexp
     def _retrieve_number_from_str(self, order_line: str) -> Optional[str]:
         # TODO: compile this fuckery
-        order_match = re.search(r'\d+', order_line)
+        order_match = re.search(r"\d+", order_line)
 
         if order_match:
             return order_match.group(0)

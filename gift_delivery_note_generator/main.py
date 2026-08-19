@@ -7,7 +7,6 @@ from gift_delivery_note_generator.services.document_parser import DocumentParser
 from gift_delivery_note_generator.services.document_reader import DocumentReader
 from gift_delivery_note_generator.services.delivery_note_renderer import DeliveryNoteRenderer
 
-
 if __name__ == "__main__":
     load_dotenv()
 
