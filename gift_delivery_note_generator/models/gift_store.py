@@ -7,3 +7,4 @@ from gift_delivery_note_generator.models.entry import Entry
 @dataclass
 class GiftStore(Entry):
     internal_id: Optional[str] = None
+    search_phrase: str = ""
