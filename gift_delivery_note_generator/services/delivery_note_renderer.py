@@ -8,6 +8,7 @@ from docx.shared import Pt
 
 from gift_delivery_note_generator.models.delivery_note import DeliveryNote
 from gift_delivery_note_generator.constants.paths import BASE_TEMPLATE_PATH, OUTPUT_PATH
+from gift_delivery_note_generator.constants.document_settings import FONT_NAME, FONT_SIZE_PT
 from gift_delivery_note_generator.store_config.utils.build_delivery_note_name import (
     build_delivery_note_name,
 )
@@ -90,8 +91,8 @@ class DeliveryNoteRenderer:
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
             for run in paragraph.runs:
-                run.font.name = "Times New Roman"
-                run.font.size = Pt(10)
+                run.font.name = FONT_NAME
+                run.font.size = Pt(FONT_SIZE_PT)
                 run.font.bold = bold
 
     def run(self):
