@@ -104,7 +104,7 @@ class DocumentReader:
             raise Exception(ErrorMessages.FAILED_TO_STRUCTURE_ORDER_CONTENTS)
 
         header = tokens[:anchor_index]
-        main_content = tokens[anchor_index :]
+        main_content = tokens[anchor_index:]
 
         return header, main_content
 
@@ -146,14 +146,14 @@ class DocumentReader:
             y_axis_jitter_tolerance=Y_AXIS_JITTER_TOLERANCE_PX_IN_ORDER_HEADER,
         )
 
-        order_date = ''
-        order_number = ''
-        order_issuer = ''
+        order_date = ""
+        order_number = ""
+        order_issuer = ""
 
         for line_index, line in enumerate(lines):
             if DocumentReader._check_has_match_with_anchor(
                 anchor=ORDER_ISSUER_PRECEDING_LINE_ANCHOR,
-                text=DocumentReader._join_text_tokens(line)
+                text=DocumentReader._join_text_tokens(line),
             ):
                 order_issuer = DocumentReader._join_text_tokens(lines[line_index + 1])
 
