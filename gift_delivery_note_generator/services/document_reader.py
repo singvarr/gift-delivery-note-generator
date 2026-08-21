@@ -19,12 +19,15 @@ from gift_delivery_note_generator.constants.paths import IMAGES_FOLDER
 from gift_delivery_note_generator.constants.scan_settings import (
     MIN_CONFIDENCE_THRESHOLD_PERCENTAGE,
     SCANNED_WORD_LEVEL,
-    Y_AXIS_JITTER_TOLERANCE_IN_PX,
+    Y_AXIS_JITTER_TOLERANCE_PX_IN_ORDER_BODY,
+    Y_AXIS_JITTER_TOLERANCE_PX_IN_ORDER_HEADER,
     ZOOM,
 )
 from gift_delivery_note_generator.store_config.utils.get_ocr_match_rules import get_ocr_match_config
 from gift_delivery_note_generator.store_config.constants.order_details_anchor import (
     ORDER_DETAILS_ANCHOR,
+    ORDER_CONTENT_START_ANCHOR,
+    ORDER_ISSUER_PRECEDING_LINE_ANCHOR,
 )
 from gift_delivery_note_generator.store_config.constants.regexps import (
     GIFT_ENTRY_NUMBER_REGEX,
@@ -46,6 +49,10 @@ class DocumentReader:
     @staticmethod
     def _join_text_tokens(tokens: Iterable[ScannedTextToken]) -> str:
         return " ".join(token.text for token in tokens)
+
+    @staticmethod
+    def _check_has_match_with_anchor(anchor: str, text: str, score_cutoff: float = 90.0) -> bool:
+        return fuzz.ratio(anchor.lower(), text.lower()) >= score_cutoff
 
     def _convert_pdf_to_images(self):
         image_paths = []
@@ -79,9 +86,27 @@ class DocumentReader:
         return image_paths
 
     def _split_document(
-        self, tokens: list[ScannedTextToken]
+        self,
+        tokens: list[ScannedTextToken],
+        score_cutoff: float = 90.0,
     ) -> tuple[list[ScannedTextToken], list[ScannedTextToken]]:
-        pass
+        anchor_index = next(
+            (
+                index
+                for index, token in enumerate(tokens)
+                if fuzz.ratio(ORDER_CONTENT_START_ANCHOR.lower(), token.text.lower())
+                >= score_cutoff
+            ),
+            None,
+        )
+
+        if not anchor_index:
+            raise Exception(ErrorMessages.FAILED_TO_STRUCTURE_ORDER_CONTENTS)
+
+        header = tokens[:anchor_index]
+        main_content = tokens[anchor_index :]
+
+        return header, main_content
 
     def _parse_and_group_text_by_lines(
         self,
@@ -115,22 +140,43 @@ class DocumentReader:
 
         return lines
 
-    def _extract_order_details(self, lines: list[ScannedLine]):
-        for line in lines:
+    def _parse_order_meta(self, tokens: list[ScannedTextToken]) -> ParsedOrderMeta:
+        lines = self._parse_and_group_text_by_lines(
+            tokens=tokens,
+            y_axis_jitter_tolerance=Y_AXIS_JITTER_TOLERANCE_PX_IN_ORDER_HEADER,
+        )
+
+        order_date = ''
+        order_number = ''
+        order_issuer = ''
+
+        for line_index, line in enumerate(lines):
+            if DocumentReader._check_has_match_with_anchor(
+                anchor=ORDER_ISSUER_PRECEDING_LINE_ANCHOR,
+                text=DocumentReader._join_text_tokens(line)
+            ):
+                order_issuer = DocumentReader._join_text_tokens(lines[line_index + 1])
+
             for index, token in enumerate(line):
-                if ORDER_DETAILS_ANCHOR.lower() in token.text.strip().lower():
+                if DocumentReader._check_has_match_with_anchor(
+                    anchor=ORDER_DETAILS_ANCHOR,
+                    text=token.text,
+                ):
                     order_date = DocumentReader._join_text_tokens(line[:index])
                     order_number = DocumentReader._join_text_tokens(line[index + 1 :])
 
-                    return ParsedOrderMeta(dt=order_date, number=order_number)
+        if not (order_date and order_number and order_issuer):
+            raise Exception(ErrorMessages.FAILED_TO_PARSE_ORDER_HEADER)
 
-        raise Exception(ErrorMessages.FAILED_TO_PARSE_ORDER_HEADER)
+        return ParsedOrderMeta(dt=order_date, number=order_number, issuer=order_issuer)
 
-    def _group_content(self, lines: list[ScannedLine]) -> ParsedDocumentContent:
-        meta = self._extract_order_details(lines=lines)
-        gifts = self._extract_sections(lines=lines)
+    def _group_content(self, tokens: list[ScannedTextToken]) -> ParsedDocumentContent:
+        lines = self._parse_and_group_text_by_lines(
+            tokens=tokens,
+            y_axis_jitter_tolerance=Y_AXIS_JITTER_TOLERANCE_PX_IN_ORDER_BODY,
+        )
 
-        return ParsedDocumentContent(meta=meta, gift_entries=gifts)
+        return self._extract_sections(lines=lines)
 
     def _clean_last_section(self, lines: list[ScannedLine]) -> list[ScannedLine]:
         for index, line in enumerate(reversed(lines)):
@@ -153,12 +199,12 @@ class DocumentReader:
                 left_boundary = line[2].left
             else:
                 for token in line:
-                    if token.left >= left_boundary - Y_AXIS_JITTER_TOLERANCE_IN_PX:
+                    if token.left >= left_boundary - Y_AXIS_JITTER_TOLERANCE_PX_IN_ORDER_BODY:
                         recipient_details += " " + token.text
                     else:
                         full_name += " " + token.text
 
-        recipient_details = self._fix_ocr_integers_with_known_candidates(recipient_details)
+        recipient_details = self._fix_ocr_integers(recipient_details)
 
         return ScannedGiftEntry(gift=gift, full_name=full_name, recipient_details=recipient_details)
 
@@ -269,7 +315,7 @@ class DocumentReader:
 
         return result
 
-    def _fix_ocr_integers_with_known_candidates(self, text: str, score_cutoff: float = 70.0) -> str:
+    def _fix_ocr_integers(self, text: str, score_cutoff: float = 70.0) -> str:
         anchor_rules = get_ocr_match_config()
         current_text = text
 
@@ -367,14 +413,15 @@ class DocumentReader:
         image_paths = self._convert_pdf_to_images()
         # Step 2. Read image contents
         tokens = self._parse_text_tokens_from_images(paths=image_paths)
-        # Step 3. Perform OCR and break group scanned text in lines
-        lines = self._parse_and_group_text_by_lines(
-            tokens=tokens,
-            y_axis_jitter_tolerance=Y_AXIS_JITTER_TOLERANCE_IN_PX,
-        )
-        # Step 4. Group content logically and extract section with information from lines
-        result = self._group_content(lines=lines)
-        # Step 5. Remove processed png files
-        # self._remove_scanned_images()
 
-        return result
+        # Step 3. Group lines of header and main text
+        header, main_content = self._split_document(tokens=tokens)
+
+        # Step 4. Extract raw data from header and main text
+        meta = self._parse_order_meta(tokens=header)
+        gift_entries = self._group_content(tokens=main_content)
+
+        # Step 5. Remove processed png files
+        self._remove_scanned_images()
+
+        return ParsedDocumentContent(meta=meta, gift_entries=gift_entries)
