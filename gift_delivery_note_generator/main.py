@@ -1,4 +1,5 @@
 import os
+import traceback
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,3 +25,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        traceback.print_exc()
