@@ -100,10 +100,10 @@ class DocumentParser:
 
     def run(self):
         order_issuer = "ГК"
-        order_number = "636"
+        order_number = "1119"
 
         gifts = self._build_delivery_notes(
-            issue_date=date.today(),
+            issue_date=date(month=8, day=31, year=2026),
             order_issuer=order_issuer,
             order_number=order_number,
         )
