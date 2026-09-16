@@ -55,7 +55,7 @@ class DocumentParser:
 
         return {"date": order_date, "order_number": order_number}
 
-    def _build_delivery_notes(self, issue_date: date, order_issuer: str, order_number: str):
+    def _build_delivery_notes(self, order_date: date, order_issuer: str, order_number: str):
         result = {}
 
         for entry in self._contents.gift_entries:
@@ -63,20 +63,21 @@ class DocumentParser:
             tin_number = TIN_NUMBER_REGEXP.search(entry.recipient_details)[0]
 
             recipient_data = f"{full_name} ({tin_number})"
-            gift = find_entry_by_keywords(text=entry.gift, entries=gifts)
+            gift = entry.gift
             store_id = parse_gift_store(text=entry.recipient_details)
 
             if store_id in result:
                 delivery_note = result[store_id]
             else:
+                issue_date = date.today()
                 formatted_issue_date = (
                     f"{UKRAINIAN_MONTHS_IN_GENITIVE[issue_date.month - 1]} {issue_date.year}"
                 )
 
                 delivery_note = DeliveryNote(
-                    issue_date=formatted_issue_date,
+                    order_date=order_date,
                     # TODO: parse it
-                    order_date=date.today(),
+                    issue_date=formatted_issue_date,
                     order_issuer=order_issuer,
                     store_id=store_id,
                     order_number=order_number,
@@ -99,11 +100,11 @@ class DocumentParser:
         return result
 
     def run(self):
-        order_issuer = "ГК"
-        order_number = "1119"
+        order_issuer = "ПУ"
+        order_number = "484_2026"
 
         gifts = self._build_delivery_notes(
-            issue_date=date(month=8, day=31, year=2026),
+            order_date=date(month=6, day=10, year=2026),
             order_issuer=order_issuer,
             order_number=order_number,
         )

@@ -13,3 +13,5 @@ images/
 
 *.pyc
 *.docx
+
+order_json/*

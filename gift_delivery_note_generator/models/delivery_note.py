@@ -15,7 +15,7 @@ class GiftEntry:
 
 @dataclass
 class DeliveryNote:
-    issue_date: str
+    issue_date: date
     order_issuer: str
     order_date: date
     order_number: str

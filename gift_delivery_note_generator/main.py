@@ -1,5 +1,6 @@
 import os
 import traceback
+from json import load
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -7,15 +8,23 @@ from dotenv import load_dotenv
 from gift_delivery_note_generator.services.document_parser import DocumentParser
 from gift_delivery_note_generator.services.document_reader import DocumentReader
 from gift_delivery_note_generator.services.delivery_note_renderer import DeliveryNoteRenderer
+from gift_delivery_note_generator.utils.parse_input_from_json import parse_input_from_json
+
 
 if __name__ == "__main__":
     load_dotenv()
 
     try:
-        sample_path = Path(os.environ["SAMPLE_PDF_PATH"])
+        if "PARSED_ORDER_JSON_PATH" in os.environ:
+            json_path = os.environ.get("PARSED_ORDER_JSON_PATH", "")
 
-        document_reader = DocumentReader(file_path=sample_path)
-        scanned_document = document_reader.run()
+            scanned_document = parse_input_from_json(json_path)
+        else:
+            sample_path = Path(os.environ["SAMPLE_PDF_PATH"])
+
+            document_reader = DocumentReader(file_path=sample_path)
+            scanned_document = document_reader.run()
+
         document_parser = DocumentParser(contents=scanned_document)
         parsed_data = document_parser.run()
 
