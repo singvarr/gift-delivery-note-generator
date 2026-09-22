@@ -1,7 +1,10 @@
 
+from functools import lru_cache
+from pathlib import Path
 from typing import Type, TypeVar
 
 import openpyxl
+from openpyxl.workbook.workbook import Workbook
 
 from .constants.keyword_separator import KEYWORD_SEPARATOR
 from .models.column_mapping import ColumnMapping
@@ -21,8 +24,13 @@ class ExcelTableParser:
         self._dataclass_type = dataclass_type
         self._mappings = mappings
 
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _load_workbook(path: Path) -> Workbook:
+        return openpyxl.load_workbook(path, data_only=True)
+
     def run(self) -> list[T]:
-        workbook = openpyxl.load_workbook(self._table_settings.path, data_only=True)
+        workbook = ExcelTableParser._load_workbook(self._table_settings.path)
 
         table = None
         sheet = None
