@@ -6,7 +6,6 @@ from fuzzy_match import match
 
 from gift_delivery_note_generator.constants.language_code import SHORT_LANGUAGE_CODE
 from gift_delivery_note_generator.models.delivery_note import DeliveryNote, GiftEntry
-from gift_delivery_note_generator.store_config.constants.gifts import gifts
 from gift_delivery_note_generator.store_config.constants.regexps import TIN_NUMBER_REGEXP
 from gift_delivery_note_generator.store_config.utils.parse_gift_store import parse_gift_store
 from gift_delivery_note_generator.constants.ukrainian_months_in_genitive import (
@@ -19,35 +18,29 @@ from gift_delivery_note_generator.models.scan import ParsedDocumentContent
 from gift_delivery_note_generator.utils.find_entry_by_keywords import find_entry_by_keywords
 import pymorphy3
 
-morph = pymorphy3.MorphAnalyzer(lang=SHORT_LANGUAGE_CODE)
-
-
-def normalize_word(word: str) -> str:
-    parses = morph.parse(word)
-
-    # 1. Шукаємо варіант, який чітко позначений як ім'я, прізвище або по батькові
-    for p in parses:
-        if any(tag in p.tag for tag in ("Name", "Surn", "Patr")):
-            return p.normal_form.capitalize()
-
-    # 2. Якщо це бігаюча голосна / іменник (наприклад, Кравця -> Кравець, Коваля -> Коваль)
-    # Звертаємося до першого нормального варіанту
-    return parses[0].normal_form.capitalize()
-
-
-def pib_to_nominative(full_name: str) -> str:
-    words = full_name.strip().split()
-    result = [normalize_word(w) for w in words]
-
-    if result:
-        result[0] = result[0].upper()
-
-    return " ".join(result)
-
 
 class DocumentParser:
     def __init__(self, contents: ParsedDocumentContent):
         self._contents = contents
+        self._morph = pymorphy3.MorphAnalyzer(lang=SHORT_LANGUAGE_CODE)
+
+    def _convert_word_to_nominative(self, word: str) -> str:
+        parses = self._morph.parse(word)
+
+        for p in parses:
+            if any(tag in p.tag for tag in ("Name", "Surn", "Patr")):
+                return p.normal_form.capitalize()
+
+        return parses[0].normal_form.capitalize()
+
+    def _convert_full_name_to_nominative(self, full_name: str) -> str:
+        words = full_name.strip().split()
+        result = [self._convert_word_to_nominative(w) for w in words]
+
+        if result:
+            result[0] = result[0].upper()
+
+        return " ".join(result)
 
     def parse_date_and_order_number(self) -> dict[str, str | None]:
         order_date = self._parse_date_line(self._contents.meta.dt)
@@ -59,11 +52,16 @@ class DocumentParser:
         result = {}
 
         for entry in self._contents.gift_entries:
-            full_name = pib_to_nominative(entry.full_name)
-            tin_number = TIN_NUMBER_REGEXP.search(entry.recipient_details)[0]
+            full_name = self._convert_full_name_to_nominative(entry.full_name)
 
-            recipient_data = f"{full_name} ({tin_number})"
-            gift = entry.gift
+            tin_matches = TIN_NUMBER_REGEXP.search(entry.recipient_details)
+
+            if len(tin_matches):
+                tin_number = tin_matches[0]
+                recipient_data = f"{full_name} ({tin_number})"
+            else:
+                recipient_data = full_name
+
             store_id = parse_gift_store(text=entry.recipient_details)
 
             if store_id in result:
@@ -87,7 +85,7 @@ class DocumentParser:
 
             order_details = build_gift_details_cell(
                 delivery_note=delivery_note,
-                gift=gift,
+                gift=entry.gift,
             )
 
             gift_row = GiftEntry(
@@ -127,13 +125,3 @@ class DocumentParser:
         month = month_match[0] if month_match else "-"
 
         return f"{day} {month} {year}"
-
-    # TODO: add fucking predicate for convenient parsing of this shit without extra regexp
-    def _retrieve_number_from_str(self, order_line: str) -> Optional[str]:
-        # TODO: compile this fuckery
-        order_match = re.search(r"\d+", order_line)
-
-        if order_match:
-            return order_match.group(0)
-
-        return None
