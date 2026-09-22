@@ -19,9 +19,6 @@ from gift_delivery_note_generator.utils.find_entry_by_keywords import find_entry
 import pymorphy3
 
 
-
-
-
 class DocumentParser:
     def __init__(self, contents: ParsedDocumentContent):
         self._contents = contents
