@@ -1,4 +1,3 @@
-from logging import getLogger
 import shutil
 
 from docx import Document
@@ -17,8 +16,6 @@ from gift_delivery_note_generator.store_config.utils.build_delivery_note_name im
 class DeliveryNoteRenderer:
     def __init__(self, delivery_note: DeliveryNote):
         self._delivery_note = delivery_note
-
-        self._logger = getLogger(__name__)
 
     @property
     def _destination_path(self):
