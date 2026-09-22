@@ -62,6 +62,7 @@ class DeliveryNoteRenderer:
             return
 
         paragraph.runs[0].text = replaced_text
+
         for run in paragraph.runs[1:]:
             run.text = ""
 
