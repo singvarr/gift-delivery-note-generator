@@ -16,3 +16,6 @@ images/
 
 order_json/*
 Claude outputs
+
+
+**/settings/*.py
