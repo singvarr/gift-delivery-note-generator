@@ -5,8 +5,8 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
+from gift_delivery_note_generator.app import Config
 from gift_delivery_note_generator.models.delivery_note import DeliveryNote
-from gift_delivery_note_generator.constants.paths import BASE_TEMPLATE_PATH, OUTPUT_PATH
 from gift_delivery_note_generator.constants.document_settings import FONT_NAME, FONT_SIZE_PT
 from gift_delivery_note_generator.store_config.utils.build_delivery_note_name import (
     build_delivery_note_name,
@@ -14,14 +14,15 @@ from gift_delivery_note_generator.store_config.utils.build_delivery_note_name im
 
 
 class DeliveryNoteRenderer:
-    def __init__(self, delivery_note: DeliveryNote):
+    def __init__(self, delivery_note: DeliveryNote, config: Config):
         self._delivery_note = delivery_note
+        self._config = config
 
     @property
     def _destination_path(self):
         document_name = build_delivery_note_name(self._delivery_note)
 
-        return OUTPUT_PATH / f"{document_name}.docx"
+        return self._config.output_path / f"{document_name}.docx"
 
     @property
     def _context(self):
@@ -33,7 +34,7 @@ class DeliveryNoteRenderer:
         }
 
     def _create_doc_from_template(self) -> Document:
-        shutil.copy(BASE_TEMPLATE_PATH, self._destination_path)
+        shutil.copy(self._config.template_path, self._destination_path)
 
         return Document(self._destination_path)
 

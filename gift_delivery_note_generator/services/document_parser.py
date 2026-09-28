@@ -1,9 +1,8 @@
-from typing import Optional
 from datetime import date
-import re
 
-from fuzzy_match import match
+from pymorphy3 import MorphAnalyzer
 
+from gift_delivery_note_generator.app import Config
 from gift_delivery_note_generator.constants.language_code import SHORT_LANGUAGE_CODE
 from gift_delivery_note_generator.models.delivery_note import DeliveryNote, GiftEntry
 from gift_delivery_note_generator.store_config.constants.regexps import TIN_NUMBER_REGEXP
@@ -14,15 +13,12 @@ from gift_delivery_note_generator.constants.ukrainian_months_in_genitive import 
 from gift_delivery_note_generator.store_config.utils.build_gift_details_cell import (
     build_gift_details_cell,
 )
-from gift_delivery_note_generator.models.scan import ParsedDocumentContent
-from gift_delivery_note_generator.utils.find_entry_by_keywords import find_entry_by_keywords
-import pymorphy3
 
 
 class DocumentParser:
-    def __init__(self, contents: ParsedDocumentContent):
-        self._contents = contents
-        self._morph = pymorphy3.MorphAnalyzer(lang=SHORT_LANGUAGE_CODE)
+    def __init__(self, config: Config):
+        self._config = config
+        self._morph = MorphAnalyzer(lang=SHORT_LANGUAGE_CODE)
 
     def _convert_word_to_nominative(self, word: str) -> str:
         parses = self._morph.parse(word)
@@ -42,86 +38,70 @@ class DocumentParser:
 
         return " ".join(result)
 
-    def parse_date_and_order_number(self) -> dict[str, str | None]:
-        order_date = self._parse_date_line(self._contents.meta.dt)
-        order_number = self._retrieve_number_from_str(self._contents.meta.number)
+    def _parse_order_date(self) -> date:
+        day_str, month_str, year_str, _ = self._config.order.meta.dt.split(" ")
+        month = next(i + 1 for i, m in enumerate(UKRAINIAN_MONTHS_IN_GENITIVE) if m == month_str)
 
-        return {"date": order_date, "order_number": order_number}
+        return date(year=int(year_str), month=month, day=int(day_str))
 
-    def _build_delivery_notes(self, order_date: date, order_issuer: str, order_number: str):
+    def _build_delivery_notes(self, order_issuer: str) -> dict[str, DeliveryNote]:
         result = {}
 
-        for entry in self._contents.gift_entries:
-            full_name = self._convert_full_name_to_nominative(entry.full_name)
+        order_date = self._parse_order_date()
 
-            tin_matches = TIN_NUMBER_REGEXP.search(entry.recipient_details)
+        for group in self._config.order.gift_entries:
+            for entry in group.entries:
+                full_name = self._convert_full_name_to_nominative(entry.full_name)
 
-            if len(tin_matches):
-                tin_number = tin_matches[0]
-                recipient_data = f"{full_name} ({tin_number})"
-            else:
-                recipient_data = full_name
+                tin_match = TIN_NUMBER_REGEXP.search(entry.recipient_details)
 
-            store_id = parse_gift_store(text=entry.recipient_details)
+                if tin_match:
+                    tin_number = tin_match.group(0)
+                    recipient_data = f"{full_name} ({tin_number})"
+                else:
+                    recipient_data = full_name
 
-            if store_id in result:
-                delivery_note = result[store_id]
-            else:
-                issue_date = date.today()
-                formatted_issue_date = (
-                    f"{UKRAINIAN_MONTHS_IN_GENITIVE[issue_date.month - 1]} {issue_date.year}"
+                store_id = parse_gift_store(
+                    text=entry.recipient_details,
+                    gift_stores=self._config.gift_stores,
                 )
 
-                delivery_note = DeliveryNote(
-                    order_date=order_date,
-                    # TODO: parse it
-                    issue_date=formatted_issue_date,
-                    order_issuer=order_issuer,
+                if store_id in result:
+                    delivery_note = result[store_id]
+                else:
+                    issue_date = date.today()
+                    formatted_issue_date = (
+                        f"{UKRAINIAN_MONTHS_IN_GENITIVE[issue_date.month - 1]} {issue_date.year}"
+                    )
+
+                    delivery_note = DeliveryNote(
+                        order_date=order_date,
+                        # TODO: parse it
+                        issue_date=formatted_issue_date,
+                        order_issuer=order_issuer,
+                        store_id=store_id,
+                        order_number=self._config.order.meta.number,
+                        gifts=[],
+                    )
+                    result[store_id] = delivery_note
+
+                order_details = build_gift_details_cell(
+                    delivery_note=delivery_note,
+                    gift=entry.gift,
+                )
+
+                gift_row = GiftEntry(
+                    recipient=recipient_data,
+                    order_details=order_details,
                     store_id=store_id,
-                    order_number=order_number,
-                    gifts=[],
                 )
-                result[store_id] = delivery_note
-
-            order_details = build_gift_details_cell(
-                delivery_note=delivery_note,
-                gift=entry.gift,
-            )
-
-            gift_row = GiftEntry(
-                recipient=recipient_data,
-                order_details=order_details,
-                store_id=store_id,
-            )
-            delivery_note.gifts.append(gift_row)
+                delivery_note.gifts.append(gift_row)
 
         return result
 
     def run(self):
         order_issuer = "ПУ"
-        order_number = "484_2026"
 
-        gifts = self._build_delivery_notes(
-            order_date=date(month=6, day=10, year=2026),
-            order_issuer=order_issuer,
-            order_number=order_number,
-        )
+        gifts = self._build_delivery_notes(order_issuer=order_issuer)
 
         return list(gifts.values())
-
-    def _parse_date_line(self, date_line: str) -> Optional[str]:
-        cleaned = re.sub(r"[a-zA-Zа-яА-ЯіїєґІЇЄҐ]", "", date_line)
-        date_line = cleaned.strip("\"'«»")
-
-        parts = date_line.split()
-
-        if len(parts) < 3:
-            return None
-
-        day = parts[0][:2]
-        month_match = match.extractOne(parts[1].lower(), UKRAINIAN_MONTHS_IN_GENITIVE)
-        year = parts[2]
-
-        month = month_match[0] if month_match else "-"
-
-        return f"{day} {month} {year}"

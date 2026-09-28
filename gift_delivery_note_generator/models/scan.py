@@ -12,9 +12,15 @@ class ParsedOrderMeta:
 
 
 @dataclass
+class GiftEntryGroup:
+    store_name: str
+    entries: list[ScannedGiftEntry]
+
+
+@dataclass
 class ParsedDocumentContent:
     meta: ParsedOrderMeta
-    gift_entries: list[ScannedGiftEntry]
+    gift_entries: list[GiftEntryGroup]
 
 
 @dataclass
