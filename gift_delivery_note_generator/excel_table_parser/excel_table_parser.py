@@ -60,7 +60,7 @@ class ExcelTableParser:
             for mapping in self._mappings:
                 index = headers.index(mapping.column)
 
-                if mapping.is_keyword_field:
+                if row[index].value and mapping.is_keyword_field:
                     value = row[index].value.split(KEYWORD_SEPARATOR)
                 else:
                     value = row[index].value
