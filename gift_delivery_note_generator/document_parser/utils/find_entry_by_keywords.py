@@ -1,6 +1,6 @@
 from typing import Iterable, Optional
 
-from gift_delivery_note_generator.models.entry import Entry
+from ...entry import Entry
 
 
 def find_entry_by_keywords(text: str, entries: Iterable[Entry]) -> Optional[Entry]:

@@ -1,4 +1,3 @@
-
 from functools import lru_cache
 from pathlib import Path
 from typing import Type, TypeVar
@@ -18,7 +17,7 @@ class ExcelTableParser:
         self,
         table_settings: TableSettings,
         dataclass_type: Type[T],
-        mappings: tuple[ColumnMapping, ...]
+        mappings: tuple[ColumnMapping, ...],
     ):
         self._table_settings = table_settings
         self._dataclass_type = dataclass_type
@@ -44,7 +43,7 @@ class ExcelTableParser:
         if table is None:
             raise Exception(
                 f"Table '{self._table_settings.table_name}' not found in "
-                f'{self._table_settings.path}'
+                f"{self._table_settings.path}"
             )
 
         data_range = list(sheet[table.ref])

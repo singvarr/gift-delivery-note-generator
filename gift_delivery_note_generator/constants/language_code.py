@@ -1,2 +1,0 @@
-LANGUAGE_CODE = "ukr"
-SHORT_LANGUAGE_CODE = "uk"

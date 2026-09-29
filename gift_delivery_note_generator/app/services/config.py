@@ -9,10 +9,12 @@ from dotenv import load_dotenv
 from gift_delivery_note_generator.excel_table_parser import ExcelTableParser, TableSettings
 from gift_delivery_note_generator.excel_table_parser.settings.gift_mappings import GIFT_MAPPINGS
 from gift_delivery_note_generator.excel_table_parser.settings.gift_stores import GIFT_STORES
-from gift_delivery_note_generator.models.gift import Gift
-from gift_delivery_note_generator.models.gift_store import GiftStore
-from gift_delivery_note_generator.models.scan import ParsedDocumentContent
-from gift_delivery_note_generator.store_config.constants.gift_category import GiftCategory
+from gift_delivery_note_generator.document_parser import (
+    Gift,
+    GiftStore,
+    GiftCategory,
+    ParsedDocumentContent,
+)
 
 from ..constants.env_variables import PATH_ENV_VARIABLES, REQUIRED_ENV_VARIABLES
 from ..models.config import Config

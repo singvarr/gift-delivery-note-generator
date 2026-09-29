@@ -6,16 +6,12 @@ Include
 .env
 .vscode
 
-samples
-
-gift_delivery_note_generator/store_config/**/*.py
-images/
-
 *.pyc
 
 order_json/*
 Claude outputs
 
-**/settings/*
-!**/settings/__init__.py
+**/settings/**
+!**/settings/**/
+!**/settings/**/__init__.py
 !**/settings/**/*.pyi

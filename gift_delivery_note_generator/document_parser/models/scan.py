@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from gift_delivery_note_generator.models.gift import Gift
+from .gift import Gift
 
 
 @dataclass

@@ -1,8 +1,8 @@
 import traceback
 from logging import getLogger
 
-from gift_delivery_note_generator.services.document_parser import DocumentParser
-from gift_delivery_note_generator.services.delivery_note_renderer import DeliveryNoteRenderer
+from gift_delivery_note_generator.document_parser import DocumentParser
+from gift_delivery_note_generator.delivery_note_renderer import DeliveryNoteRenderer
 
 from .services.config import ConfigService
 

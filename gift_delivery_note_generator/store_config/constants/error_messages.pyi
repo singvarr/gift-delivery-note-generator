@@ -1,6 +1,0 @@
-from enum import StrEnum
-
-
-class ErrorMessages(StrEnum):
-    FAILED_TO_PARSE_ORDER_BODY = ...
-    GIFT_NOT_FOUND = ...

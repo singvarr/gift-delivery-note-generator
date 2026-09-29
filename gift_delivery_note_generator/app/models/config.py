@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from gift_delivery_note_generator.models.gift import Gift
-from gift_delivery_note_generator.models.gift_store import GiftStore
-from gift_delivery_note_generator.models.scan import ParsedDocumentContent
+from gift_delivery_note_generator.document_parser import Gift, GiftStore, ParsedDocumentContent
 
 
 @dataclass
