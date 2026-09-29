@@ -7,14 +7,12 @@ from pymorphy3 import MorphAnalyzer
 
 from gift_delivery_note_generator.app.constants.language_code import LANGUAGE_CODE
 from gift_delivery_note_generator.delivery_note_renderer import DeliveryNote, DeliveryNoteEntry
-from gift_delivery_note_generator.document_parser.settings.utils.parse_gift_store import (
-    parse_gift_store,
-)
 
 from ..constants.tin_number_regexp import TIN_NUMBER_REGEXP
 from ..constants.ukrainian_months_in_genitive import UKRAINIAN_MONTHS_IN_GENITIVE
 from ..settings.utils.build_gift_details_cell import build_gift_details_cell
 from ..settings.utils.get_formatted_order_issuer import get_formatted_order_issuer
+from ..settings.utils.parse_gift_store import parse_gift_store
 
 if TYPE_CHECKING:
     from gift_delivery_note_generator.app import Config
