@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 from typing import TYPE_CHECKING
+from logging import getLogger
 from pathlib import Path
 
 from docx import Document
@@ -29,9 +30,11 @@ class DeliveryNoteRenderer:
         self._delivery_note = delivery_note
         self._config = config
 
+        self._logger = getLogger(__name__)
+
     @property
     def _destination_path(self) -> Path:
-        document_name = build_delivery_note_name(self._delivery_note)
+        document_name = build_delivery_note_name(self._delivery_note, self._config)
 
         return self._config.output_path / f"{document_name}.docx"
 
@@ -112,3 +115,4 @@ class DeliveryNoteRenderer:
         self._replace_tags_by_values(document=document)
 
         document.save(str(self._destination_path))
+        self._logger.info(f'Created delivery note {self._destination_path.name}')

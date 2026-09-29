@@ -1,4 +1,3 @@
-import traceback
 from logging import getLogger
 
 from gift_delivery_note_generator.document_parser import DocumentParser
@@ -24,5 +23,4 @@ class App:
                 renderer.run()
 
         except Exception as e:
-            self._logger.error(f"An error occurred: {e}")
-            traceback.print_exc()
+            self._logger.exception(f"An error occurred: {e}")
