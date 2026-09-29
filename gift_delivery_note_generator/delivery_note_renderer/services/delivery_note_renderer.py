@@ -115,4 +115,4 @@ class DeliveryNoteRenderer:
         self._replace_tags_by_values(document=document)
 
         document.save(str(self._destination_path))
-        self._logger.info(f'Created delivery note {self._destination_path.name}')
+        self._logger.info(f"Created delivery note {self._destination_path.name}")

@@ -14,7 +14,7 @@ from gift_delivery_note_generator.document_parser.settings.utils.parse_gift_stor
 from ..constants.tin_number_regexp import TIN_NUMBER_REGEXP
 from ..constants.ukrainian_months_in_genitive import UKRAINIAN_MONTHS_IN_GENITIVE
 from ..settings.utils.build_gift_details_cell import build_gift_details_cell
-from ..settings.utils.get_order_issuer import get_order_issuer
+from ..settings.utils.get_formatted_order_issuer import get_formatted_order_issuer
 
 if TYPE_CHECKING:
     from gift_delivery_note_generator.app import Config
@@ -49,10 +49,11 @@ class DocumentParser:
 
         return date(year=int(year_str), month=month, day=int(day_str))
 
-    def _build_delivery_notes(self, order_issuer: str) -> dict[str, DeliveryNote]:
+    def run(self) -> list[DeliveryNote]:
         result: dict[str, DeliveryNote] = {}
 
         order_date = self._parse_order_date()
+        order_issuer = get_formatted_order_issuer(order_issuer=self._config.order.meta.issuer)
 
         for group in self._config.order.gift_entries:
             for entry in group.entries:
@@ -95,6 +96,7 @@ class DocumentParser:
                 order_details = build_gift_details_cell(
                     delivery_note=delivery_note,
                     gift=entry.gift,
+                    order_issuer=order_issuer,
                 )
 
                 gift_row = DeliveryNoteEntry(
@@ -104,11 +106,4 @@ class DocumentParser:
                 )
                 delivery_note.gifts.append(gift_row)
 
-        return result
-
-    def run(self) -> list[DeliveryNote]:
-        order_issuer = get_order_issuer()
-
-        gifts = self._build_delivery_notes(order_issuer=order_issuer)
-
-        return list(gifts.values())
+        return list(result.values())
