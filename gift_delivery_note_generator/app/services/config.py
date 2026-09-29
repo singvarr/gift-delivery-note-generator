@@ -13,7 +13,7 @@ from gift_delivery_note_generator.document_parser import (
     Gift,
     GiftStore,
     GiftCategory,
-    ParsedDocumentContent,
+    Order,
 )
 
 from ..constants.env_variables import PATH_ENV_VARIABLES, REQUIRED_ENV_VARIABLES
@@ -42,7 +42,7 @@ class ConfigService:
 
         return result
 
-    def _parse_order(self) -> ParsedDocumentContent:
+    def _parse_order(self) -> Order:
         self._parser.add_argument("--order", type=Path, required=True)
         args = self._parser.parse_args()
 
@@ -50,7 +50,7 @@ class ConfigService:
             order = load(data)
 
             return from_dict(
-                ParsedDocumentContent,
+                Order,
                 order,
                 config=DaciteConfig(strict=True, cast=[GiftCategory]),
             )

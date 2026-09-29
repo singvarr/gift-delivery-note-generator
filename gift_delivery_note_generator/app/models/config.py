@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from gift_delivery_note_generator.document_parser import Gift, GiftStore, ParsedDocumentContent
+from gift_delivery_note_generator.document_parser import Gift, GiftStore, Order
 
 
 @dataclass
@@ -10,4 +10,4 @@ class Config:
     output_path: Path
     gifts: list[Gift]
     gift_stores: list[GiftStore]
-    order: ParsedDocumentContent
+    order: Order
