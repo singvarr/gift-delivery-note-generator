@@ -84,7 +84,7 @@ class DocumentParser:
                     delivery_note = DeliveryNote(
                         order_date=order_date,
                         issue_date=formatted_issue_date,
-                        order_issuer=order_issuer,
+                        order_issuer=self._config.order.meta.issuer,
                         store_id=store_id,
                         order_number=self._config.order.meta.number,
                         gifts=[],
