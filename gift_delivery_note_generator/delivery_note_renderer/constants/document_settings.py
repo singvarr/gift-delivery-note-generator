@@ -1,2 +1,3 @@
 FONT_NAME = "Times New Roman"
 FONT_SIZE_PT = 10
+ITALIC_TAG = "{{TOTAL_HUMANIZED}}"

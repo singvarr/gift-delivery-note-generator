@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import shutil
 from typing import TYPE_CHECKING
 from logging import getLogger
@@ -8,6 +9,7 @@ from pathlib import Path
 from docx import Document
 from docx.document import Document as DocumentType
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 from docx.table import _Cell
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -16,6 +18,7 @@ from docx.shared import Pt
 from gift_delivery_note_generator.delivery_note_renderer.constants.document_settings import (
     FONT_NAME,
     FONT_SIZE_PT,
+    ITALIC_TAG,
 )
 
 from ..models.delivery_note import DeliveryNote
@@ -71,15 +74,32 @@ class DeliveryNoteRenderer:
 
         replaced_text = full_text
         for tag, value in context.items():
-            replaced_text = replaced_text.replace(tag, str(value))
+            if tag != ITALIC_TAG:
+                replaced_text = replaced_text.replace(tag, str(value))
 
-        if replaced_text == full_text:
+        if replaced_text == full_text and ITALIC_TAG not in full_text:
             return
-
-        paragraph.runs[0].text = replaced_text
 
         for run in paragraph.runs[1:]:
             run.text = ""
+
+        before, tag, after = replaced_text.partition(ITALIC_TAG)
+        first_run = paragraph.runs[0]
+        first_run.text = before
+
+        if tag:
+            self._add_run_after(first_run, after)
+            italic_run = self._add_run_after(first_run, str(context[ITALIC_TAG]))
+            italic_run.font.italic = True
+
+    def _add_run_after(self, run: Run, text: str) -> Run:
+        new_element = copy.deepcopy(run._r)
+        run._r.addnext(new_element)
+
+        new_run = Run(new_element, run._parent)
+        new_run.text = text
+
+        return new_run
 
     def _print_gift_table(self, document: DocumentType) -> None:
         table = document.tables[0]
