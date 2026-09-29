@@ -28,5 +28,3 @@ class OrderRecordsGroup:
 class Order:
     meta: OrderMeta
     gift_entries: list[OrderRecordsGroup]
-
-

@@ -72,7 +72,7 @@ class DocumentParser:
                 )
 
                 if not store_id:
-                    raise Exception('Store id is not found')
+                    raise Exception("Store id is not found")
 
                 if store_id in result:
                     delivery_note = result[store_id]
