@@ -8,10 +8,10 @@ from .services.config import ConfigService
 
 
 class App:
-    def __init__(self):
+    def __init__(self) -> None:
         self._logger = getLogger(__name__)
 
-    def run(self):
+    def run(self) -> None:
         try:
             config_service = ConfigService()
             config = config_service.run()

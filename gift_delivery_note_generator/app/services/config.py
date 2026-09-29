@@ -21,7 +21,7 @@ from ..models.config import Config
 
 
 class ConfigService:
-    def __init__(self):
+    def __init__(self) -> None:
         self._parser = argparse.ArgumentParser()
 
     def _validate_required_keys(self) -> None:

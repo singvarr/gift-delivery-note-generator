@@ -15,7 +15,7 @@ class DeliveryNoteEntry:
 
 @dataclass
 class DeliveryNote:
-    issue_date: date
+    issue_date: str
     order_issuer: str
     order_date: date
     order_number: str
@@ -23,9 +23,9 @@ class DeliveryNote:
     gifts: list[DeliveryNoteEntry]
 
     @property
-    def total_gifts(self):
+    def total_gifts(self) -> int:
         return len(self.gifts)
 
     @property
-    def humanized_total_gifts(self):
+    def humanized_total_gifts(self) -> str:
         return num2words(self.total_gifts, lang=LANGUAGE_CODE)

@@ -50,7 +50,7 @@ class DocumentParser:
         return date(year=int(year_str), month=month, day=int(day_str))
 
     def _build_delivery_notes(self, order_issuer: str) -> dict[str, DeliveryNote]:
-        result = {}
+        result: dict[str, DeliveryNote] = {}
 
         order_date = self._parse_order_date()
 
@@ -70,6 +70,9 @@ class DocumentParser:
                     text=entry.recipient_details,
                     gift_stores=self._config.gift_stores,
                 )
+
+                if not store_id:
+                    raise Exception('Store id is not found')
 
                 if store_id in result:
                     delivery_note = result[store_id]
@@ -103,7 +106,7 @@ class DocumentParser:
 
         return result
 
-    def run(self):
+    def run(self) -> list[DeliveryNote]:
         order_issuer = get_order_issuer()
 
         gifts = self._build_delivery_notes(order_issuer=order_issuer)
