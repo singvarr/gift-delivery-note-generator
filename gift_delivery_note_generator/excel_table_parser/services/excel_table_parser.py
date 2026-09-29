@@ -5,9 +5,9 @@ from typing import Type, TypeVar
 import openpyxl
 from openpyxl.workbook.workbook import Workbook
 
-from .constants.keyword_separator import KEYWORD_SEPARATOR
-from .models.column_mapping import ColumnMapping
-from .models.table_settings import TableSettings
+from ..constants.keyword_separator import KEYWORD_SEPARATOR
+from ..models.column_mapping import ColumnMapping
+from ..models.table_settings import TableSettings
 
 T = TypeVar("T")
 
