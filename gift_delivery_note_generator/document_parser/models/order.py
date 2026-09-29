@@ -7,8 +7,7 @@ from .gift import Gift
 class OrderMeta:
     dt: str
     number: str
-    # TODO: make it required
-    issuer: str = ""
+    issuer: str
 
 
 @dataclass
