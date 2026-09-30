@@ -93,7 +93,7 @@ class DocumentParser:
 
                 order_details = build_gift_details_cell(
                     delivery_note=delivery_note,
-                    gift=entry.gift,
+                    entry=entry,
                     order_issuer=order_issuer,
                 )
 

@@ -66,7 +66,11 @@ class DeliveryNoteRenderer:
         for paragraph in paragraphs:
             self._replace_tags_in_paragraph(paragraph, self._context)
 
-    def _replace_tags_in_paragraph(self, paragraph: Paragraph, context: dict[str, str | int]) -> None:
+    def _replace_tags_in_paragraph(
+        self,
+        paragraph: Paragraph,
+        context: dict[str, str | int],
+    ) -> None:
         full_text = "".join(run.text for run in paragraph.runs)
 
         if not full_text or not paragraph.runs:

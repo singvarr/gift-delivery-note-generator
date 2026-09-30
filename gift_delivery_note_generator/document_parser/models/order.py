@@ -15,6 +15,7 @@ class OrderRecord:
     gift: Gift
     full_name: str
     recipient_details: str
+    is_expired: bool = False
 
 
 @dataclass
