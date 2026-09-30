@@ -1,5 +1,3 @@
 from enum import StrEnum
 
-
-class GiftCategory(StrEnum):
-    ...
+class GiftCategory(StrEnum): ...
