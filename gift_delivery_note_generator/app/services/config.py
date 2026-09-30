@@ -69,14 +69,16 @@ class ConfigService:
             path=settings_table_path,
             table_name=os.environ["GIFTS_TABLE"],
         )
-        gifts_parser = ExcelTableParser(gifts_table_settings, Gift, GIFT_MAPPINGS)
+        gifts_parser = ExcelTableParser[Gift](gifts_table_settings, Gift, GIFT_MAPPINGS)
         gifts = gifts_parser.run()
 
         gift_stores_table_settings = TableSettings(
             path=settings_table_path,
             table_name=os.environ["GIFT_STORES_TABLE"],
         )
-        gift_stores_parser = ExcelTableParser(gift_stores_table_settings, GiftStore, GIFT_STORES)
+        gift_stores_parser = ExcelTableParser[GiftStore](
+            gift_stores_table_settings, GiftStore, GIFT_STORES
+        )
         gift_stores = gift_stores_parser.run()
 
         return Config(

@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import Generic, Type, TypeVar
 
 import openpyxl
 from openpyxl.workbook.workbook import Workbook
@@ -12,7 +12,7 @@ from ..models.table_settings import TableSettings
 T = TypeVar("T")
 
 
-class ExcelTableParser:
+class ExcelTableParser(Generic[T]):
     def __init__(
         self,
         table_settings: TableSettings,
@@ -40,11 +40,11 @@ class ExcelTableParser:
                 sheet = worksheet
                 break
 
-        if table is None:
-            raise Exception(
-                f"Table '{self._table_settings.table_name}' not found in "
-                f"{self._table_settings.path}"
-            )
+        if not sheet:
+            raise Exception(f"Sheet with table {self._table_settings.table_name} not found")
+
+        if not table:
+            raise Exception(f"Table '{self._table_settings.table_name}' not found")
 
         data_range = list(sheet[table.ref])
         header_row, *data_rows = data_range
