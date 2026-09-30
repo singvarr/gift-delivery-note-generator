@@ -42,7 +42,7 @@ class DeliveryNoteRenderer:
         return self._config.output_path / f"{document_name}.docx"
 
     @property
-    def _context(self) -> dict[str]:
+    def _context(self) -> dict[str, str | int]:
         return {
             "{{TOTAL_GIFTS}}": self._delivery_note.total_gifts,
             "{{TOTAL_HUMANIZED}}": self._delivery_note.humanized_total_gifts,
@@ -66,7 +66,7 @@ class DeliveryNoteRenderer:
         for paragraph in paragraphs:
             self._replace_tags_in_paragraph(paragraph, self._context)
 
-    def _replace_tags_in_paragraph(self, paragraph: Paragraph, context: dict[str, str]) -> None:
+    def _replace_tags_in_paragraph(self, paragraph: Paragraph, context: dict[str, str | int]) -> None:
         full_text = "".join(run.text for run in paragraph.runs)
 
         if not full_text or not paragraph.runs:
