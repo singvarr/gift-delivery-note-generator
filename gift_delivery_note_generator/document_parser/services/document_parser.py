@@ -8,6 +8,7 @@ from pymorphy3 import MorphAnalyzer
 from gift_delivery_note_generator.app.constants.language_code import LANGUAGE_CODE
 from gift_delivery_note_generator.delivery_note_renderer import DeliveryNote, DeliveryNoteEntry
 
+from ..constants.numeric_date_regexp import NUMERIC_DATE_REGEXP
 from ..constants.tin_number_regexp import TIN_NUMBER_REGEXP
 from ..constants.ukrainian_months_in_genitive import UKRAINIAN_MONTHS_IN_GENITIVE
 from ..settings.utils.build_gift_details_cell import build_gift_details_cell
@@ -42,7 +43,15 @@ class DocumentParser:
         return " ".join(result)
 
     def _parse_order_date(self) -> date:
-        day_str, month_str, year_str, _ = self._config.order.meta.dt.split(" ")
+        dt = self._config.order.meta.dt
+
+        numeric_match = NUMERIC_DATE_REGEXP.match(dt)
+
+        if numeric_match:
+            day_str, month_str, year_str = numeric_match.groups()
+            return date(year=int(year_str), month=int(month_str), day=int(day_str))
+
+        day_str, month_str, year_str, _ = dt.split(" ")
         month = next(i + 1 for i, m in enumerate(UKRAINIAN_MONTHS_IN_GENITIVE) if m == month_str)
 
         return date(year=int(year_str), month=month, day=int(day_str))
