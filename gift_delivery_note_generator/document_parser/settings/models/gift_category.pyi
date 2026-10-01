@@ -1,3 +1,3 @@
 from enum import StrEnum
 
-class GiftCategory(StrEnum): ... # type: ignore[misc]
+class GiftCategory(StrEnum): ...  # type: ignore[misc]
