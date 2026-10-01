@@ -26,6 +26,6 @@ You need to pass json with information from scanned document. Use AI capabilitie
 
 Run this command for generation of delivery notes:
 
-```py
-python -m gift_delivery_note_generator.main --order PATH_TO_YOUR_JSON
+```sh
+python -m gift_delivery_note_generator.main --order {{PATH_TO_YOUR_JSON}}
 ```
