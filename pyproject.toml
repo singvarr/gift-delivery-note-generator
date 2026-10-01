@@ -19,3 +19,7 @@ python_version = "3.14"
 [[tool.mypy.overrides]]
 module = "pymorphy3.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "num2words.*"
+ignore_missing_imports = true
