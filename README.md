@@ -6,24 +6,16 @@ A python app that converts order scan in pdf to delivery note. Used for gift sto
 
 ### Prerequisites
 
-It's assumed that all these dependencies are installed on your OS.
+Runs on python 3.14.
 
-1. python 3.14
-2. tesseract OCR engine
+### Installation
 
-### Installation:
-
-1. Install tesseract and add to PATH.
-2. Create virtual environment
-3. Create `.env` file using [example](./env-template)
-4. Install dependencies from [requirements](./requirements.txt)
+1. Create virtual environment
+2. Create `.env` file using [example](./env-template)
+3. Install dependencies from [requirements](./requirements.txt)
 
 ### Preparing the project
 
-For running of application you need to add order samples in pdf format. Also you need to provide template of output document in `.doc` or `.docx` document.
+This project uses list of gifts and gift stores for delivery note generation from excel spreadsheet. Also, you need to provide a template of delivery notes.
 
-Also you need to implement handlers and constants stored in `./gift_delivery_note_generator/store_config`. All these items contains sensitive data about stores that's why it's excluded from source version control.
-
-## Application flow
-
-## Production build
+The store-specific functions live in gitignored settings/*.py files and .pyi stubs are committed alongside them. You need to implement them on your own.
