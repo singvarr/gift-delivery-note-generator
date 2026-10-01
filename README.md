@@ -18,7 +18,7 @@ Runs on python 3.14.
 
 This project uses list of gifts and gift stores for delivery note generation from excel spreadsheet. Also, you need to provide a template of delivery notes.
 
-The store-specific functions live in gitignored settings/*.py files and .pyi stubs are committed alongside them. You need to implement them on your own.
+The store-specific functions live in gitignored `settings/*.py` files and `.pyi` stubs are committed alongside them. You need to implement them on your own.
 
 ## Running the project
 
