@@ -15,12 +15,7 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
-from gift_delivery_note_generator.delivery_note_renderer.constants.document_settings import (
-    FONT_NAME,
-    FONT_SIZE_PT,
-    ITALIC_TAG,
-)
-
+from ..constants.document_settings import FONT_NAME, FONT_SIZE_PT, ITALIC_TAG
 from ..models.delivery_note import DeliveryNote
 from ..settings.utils.build_delivery_note_name import build_delivery_note_name
 
