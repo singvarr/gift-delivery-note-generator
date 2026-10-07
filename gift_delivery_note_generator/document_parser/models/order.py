@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import dataclass
 
 from .gift import Gift
@@ -15,6 +16,7 @@ class OrderRecord:
     gift: Gift
     full_name: str
     recipient_details: str
+    gift_subtype: Optional[str] = None
     is_expired: bool = False
 
 
