@@ -12,7 +12,10 @@ from ..constants.numeric_date_regexp import NUMERIC_DATE_REGEXP
 from ..constants.tin_number_regexp import TIN_NUMBER_REGEXP
 from ..constants.ukrainian_months_in_genitive import UKRAINIAN_MONTHS_IN_GENITIVE
 from ..settings.utils.build_gift_details_cell import build_gift_details_cell
-from ..settings.utils.get_formatted_order_issuer import get_formatted_order_issuer
+from ..settings.utils.get_formatted_order_issuer import (
+    get_formatted_order_issuer_for_cell,
+    get_formatted_order_issuer_for_filename,
+)
 from ..settings.utils.parse_gift_store import parse_gift_store
 
 if TYPE_CHECKING:
@@ -60,7 +63,12 @@ class DocumentParser:
         result: dict[str, DeliveryNote] = {}
 
         order_date = self._parse_order_date()
-        order_issuer = get_formatted_order_issuer(order_issuer=self._config.order.meta.issuer)
+        order_issuer_for_cell = get_formatted_order_issuer_for_cell(
+            order_issuer=self._config.order.meta.issuer
+        )
+        order_issuer_for_filename = get_formatted_order_issuer_for_filename(
+            order_issuer=self._config.order.meta.issuer
+        )
 
         for group in self._config.order.gift_entries:
             for entry in group.entries:
@@ -93,7 +101,7 @@ class DocumentParser:
                     delivery_note = DeliveryNote(
                         order_date=order_date,
                         issue_date=formatted_issue_date,
-                        order_issuer=self._config.order.meta.issuer,
+                        order_issuer=order_issuer_for_filename,
                         store_id=store_id,
                         order_number=self._config.order.meta.number,
                         gifts=[],
@@ -103,7 +111,7 @@ class DocumentParser:
                 order_details = build_gift_details_cell(
                     delivery_note=delivery_note,
                     entry=entry,
-                    order_issuer=order_issuer,
+                    order_issuer=order_issuer_for_cell,
                 )
 
                 gift_row = DeliveryNoteEntry(
